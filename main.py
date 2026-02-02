@@ -57,30 +57,42 @@ def is_video_file(file_path: Path) -> bool:
 # =====================
 def clean_filename(file_path: Path) -> str:
     """
-    Clean filename for an alread-validation video file
-    Assume file is a vidoe and download is complete
+    Clean filename for movies, TV shows, and anime.
+    Assumes file is a validated video.
     """
 
     stem = file_path.stem
 
-    # REmove the junk words
-    stem = re.sub("\bunwatched\b", "", stem, flags=re.IGNORECASE)
+    # Remove bracket junk: [720p], [Dual], etc.
+    stem = re.sub(r"\[.*?\]", "", stem)
 
-    # --- Normalize separators ---
-    stem = re.sub(r"[._-]+", " ", stem)
+    # Remove @channel names
+    stem = re.sub(r"@\w+", "", stem)
+
+    # Normalize separators
+    stem = re.sub(r"[._]+", " ", stem)
     stem = re.sub(r"\s+", " ", stem).strip()
 
-    #  --- TV show pattern ---
-    tv_match = re.search(r"(S\d+E\d+|S\d+\s*E?\d+)", stem, re.IGNORECASE)
+    # TV / Anime patterns (in priority order)
+
+    # S01E02, S1E2, S1 02
+    tv_match = re.search(r"(.*?)(S\d+\s*E?\d+)", stem, re.IGNORECASE)
     if tv_match:
-        return stem[: tv_match.end()].strip()
+        return tv_match.group(1).strip() + " " + tv_match.group(2).upper()
 
-    # --- Movie pattern (year) ---
-    movie_match = re.search(r"\b(19|20)\d{2}\b", stem)
+    # Anime style: "Title - 22"
+    anime_match = re.search(r"(.*?)[\s\-]+(\d{1,3})$", stem)
+    if anime_match:
+        title = anime_match.group(1).strip()
+        episode = anime_match.group(2)
+        return f"{title} E{episode}"
+
+    # Movie with year
+    movie_match = re.search(r"(.*?\b(19|20)\d{2}\b)", stem)
     if movie_match:
-        return stem[: movie_match.end()].strip()
+        return movie_match.group(1).strip()
 
-    # --- Fallback ---
+    # Fallback
     return stem
 
 

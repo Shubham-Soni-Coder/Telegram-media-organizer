@@ -9,6 +9,7 @@ class FolderMaker:
         self.destination_folder = Path(destination_folder)
 
         self.anime_folder = self.destination_folder / "anime" / "video"
+        self.anime_movie_folder = self.destination_folder / "anime" / "movie"
         self.movie_folder = self.destination_folder / "movie"
         self.web_series = self.destination_folder / "web_series"
 
@@ -53,7 +54,7 @@ class FolderMaker:
         raise ValueError(f"Invalid TV title format: {title}")
 
     def movie_target_path(self, file_path: Path, title: str):
-        movie_dir = self.movie_folder / title
+        movie_dir = self.anime_movie_folder / title
         movie_dir.mkdir(parents=True, exist_ok=True)
         return movie_dir / (title + file_path.suffix)
 
