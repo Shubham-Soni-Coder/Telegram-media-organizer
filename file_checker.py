@@ -22,6 +22,15 @@ class AnimeClassifier:
         }
         """
 
+    def _is_similar(self, title: str, english: str, romaji: str) -> bool:
+        def similarity_ratio(a, b):
+            return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+        return (
+            similarity_ratio(title, english) > 0.4
+            or similarity_ratio(title, romaji) > 0.4
+        )
+
     def is_anime(self, title: str) -> bool:
         variables = {"search": title}
 
@@ -41,20 +50,11 @@ class AnimeClassifier:
             if not media:
                 return False
 
-            # FIX: Verify title similarity
             found_titles = media.get("title", {})
             english = found_titles.get("english") or ""
             romaji = found_titles.get("romaji") or ""
 
-            # Helper to check similarity
-            def similar(a, b):
-                return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-            # Check if either English or Romaji title is at least 40% similar to search
-            if similar(title, english) > 0.4 or similar(title, romaji) > 0.4:
-                return True
-
-            return False
+            return self._is_similar(title, english, romaji)
 
         except Exception:
             return False
