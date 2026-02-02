@@ -2,6 +2,7 @@ import re
 import os
 from pathlib import Path
 import shutil
+from file_checker import MovieClassifierTMDb, AnimeClassifier
 
 
 class FolderMaker:
@@ -12,6 +13,9 @@ class FolderMaker:
         self.anime_movie_folder = self.destination_folder / "anime" / "movie"
         self.movie_folder = self.destination_folder / "movie"
         self.web_series = self.destination_folder / "web_series"
+
+        self.movie_classifier = MovieClassifierTMDb()
+        self.anime_classifier = AnimeClassifier()
 
     def detect_media_type(self, title):
         """
@@ -60,7 +64,17 @@ class FolderMaker:
         raise ValueError(f"Invalid TV title format: {title}")
 
     def movie_target_path(self, file_path: Path, title: str):
-        movie_dir = self.anime_movie_folder / title
+        media_type = self.anime_classifier.is_anime(title)
+        if media_type:
+            movie_dir = self.anime_movie_folder / title
+        else:
+            media_type = self.movie_classifier.checker(title)
+            if media_type == "bollywood":
+                movie_dir = self.movie_folder / "bollywood" / title
+            elif media_type == "hollywood":
+                movie_dir = self.movie_folder / "hollywood" / title
+            else:
+                movie_dir = self.movie_folder / "other" / title
         movie_dir.mkdir(parents=True, exist_ok=True)
         return movie_dir / (title + file_path.suffix)
 

@@ -110,4 +110,6 @@ class MovieClassifierTMDb:
 
 if __name__ == "__main__":
     classifer = MovieClassifierTMDb()
-    print(classifer.checker("Arrival 2016"))
+    anime_classifier = AnimeClassifier()
+    # print(classifer.checker("Gadar 2"))
+    print(anime_classifier.is_anime("Arrival"))
