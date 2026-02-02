@@ -1,94 +1,113 @@
-import re
+import requests
 import os
 from pathlib import Path
-import shutil
+from dotenv import load_dotenv
 
 
-class FolderMaker:
-    def __init__(self, destination_folder):
-        self.destination_folder = Path(destination_folder)
-
-        self.anime_folder = self.destination_folder / "anime" / "video"
-        self.anime_movie_folder = self.destination_folder / "anime" / "movie"
-        self.movie_folder = self.destination_folder / "movie"
-        self.web_series = self.destination_folder / "web_series"
-
-    def detect_media_type(self, title):
+class AnimeClassifier:
+    def __init__(self):
+        self.ANIME_URL = "https://graphql.anilist.co"
+        self.query = """
+        query ($search: String) {
+        Media(search: $search, type: ANIME) {
+        id
+        }
+        }
         """
-        Reuturn : 'Tv' or 'movie'
-        """
-        tv_patterns = [
-            r"S\d+\s*E\d+",  # S01E01
-            r"S\d+\s*-\s*\d+",  # S01 - 01
-            r"S\d+\s+\d+",  # S1 01  ← YOUR CASE
-            r"\bEP?\s*\d+\b",  # EP01 / E01
-        ]
 
-        for pattern in tv_patterns:
-            if re.search(pattern, title, re.IGNORECASE):
-                return "tv"
+    def is_anime(self, title: str) -> bool:
+        variables = {"search": title}
 
-        return "movie"
+        response = requests.post(
+            self.ANIME_URL,
+            json={"query": self.query, "variables": variables},
+            timeout=10,
+        )
+
+        if response.status_code != 200:
+            return False  # network / API issue → fail safe
+
+        data = response.json()
+
+        return data.get("data", {}).get("Media") is not None
+
+
+class MovieClassifierTMDb:
+    def __init__(self):
+        self.base_dir = Path(__file__).resolve().parent
+        load_dotenv(self.base_dir / ".env")
+        self.TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+        self.TMDB_BASE = "https://api.themoviedb.org/3"
+
+        if not self.TMDB_API_KEY:
+            raise ValueError("TMDB_API_KEY not found in .env file")
+
+        # Use a session for connection pooling and better performance
+        self.session = requests.Session()
+        # Add a real User-Agent to avoid being blocked by some APIs/firewalls
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+        )
+
+    def search_movie(self, title: str) -> int | None:
+        url = f"{self.TMDB_BASE}/search/movie"
+        parms = {"api_key": self.TMDB_API_KEY, "query": title}
+
+        try:
+            r = self.session.get(url, params=parms, timeout=10)
+            if r.status_code != 200:
+                print(f"API Error {r.status_code}: {r.text}")
+                return None
+
+            results = r.json().get("results", [])
+            return results[0].get("id") if results else None
+        except requests.RequestException as e:
+            print(f"Request failed: {e}")
+            return None
+
+    def movie_details(self, movie_id: int) -> dict | None:
+        url = f"{self.TMDB_BASE}/movie/{movie_id}"
+        parms = {
+            "api_key": self.TMDB_API_KEY,
+        }
+
+        try:
+            r = self.session.get(url, params=parms, timeout=10)
+            if r.status_code != 200:
+                print(f"API Error {r.status_code}: {r.text}")
+                return None
+
+            return r.json()
+        except requests.RequestException as e:
+            print(f"Request failed: {e}")
+            return None
 
     @staticmethod
-    def parse_tv_title(title):
-        """
-        return: show_name, season_number, episode_number
-        """
+    def classify_movie(details: dict) -> str:
+        countries = [c["iso_3166_1"] for c in details.get("production_countries", [])]
 
-        patterns = [
-            # S01E02, S1 E02
-            r"^(.*?)[\s._-]*S(\d+)[\s._-]*E(\d+)",
-            # E02, EP02 (no season)
-            r"^(.*?)[\s._-]*(?:EP|E)(\d+)$",
-        ]
+        language = details.get("original_language")
 
-        for pattern in patterns:
-            match = re.search(pattern, title, re.IGNORECASE)
-            if match:
-                show_name = match.group(1).strip()
+        if "IN" in countries:
+            return "bollywood"
 
-                if len(match.groups()) == 3:
-                    season = int(match.group(2))
-                    episode = int(match.group(3))
-                else:
-                    season = 1  # default season
-                    episode = int(match.group(2))
+        if "US" in countries or language == "en":
+            return "hollywood"
 
-                return show_name, season, episode
+        return "other"
 
-        raise ValueError(f"Invalid TV title format: {title}")
-
-    def movie_target_path(self, file_path: Path, title: str):
-        movie_dir = self.anime_movie_folder / title
-        movie_dir.mkdir(parents=True, exist_ok=True)
-        return movie_dir / (title + file_path.suffix)
-
-    def tv_target_path(self, file_path: str, title: str):
-        show_name, season, episode = self.parse_tv_title(title)
-
-        season_dir = self.anime_folder / show_name / f"Season {season}"
-        season_dir.mkdir(parents=True, exist_ok=True)
-
-        new_name = f"{show_name} - S{season:02d}E{episode:02d}{file_path.suffix}"
-
-        return season_dir / new_name
-
-    @staticmethod
-    def safe_move(src: Path, dst: Path):
-        counter = 1
-        final_dst = dst
-
-        while final_dst.exists():
-            final_dst = dst.with_stem(f"{dst.stem}_{counter}")
-            counter += 1
-
-        shutil.move(str(src), str(final_dst))
-        print(f"[MOVED] {src.name} → {final_dst.name}")
+    def checker(self, title: str):
+        movie_id = self.search_movie(title)
+        if movie_id is None:
+            return None
+        details = self.movie_details(movie_id)
+        if details is None:
+            return None
+        return self.classify_movie(details)
 
 
 if __name__ == "__main__":
-    maker = FolderMaker("D:/")
-    Path = Path("D:/downloads/telegrzm download/Monster S1 02.mkv")
-    target = maker.tv_target_path(Path, "Monster S1 02.mkv")
-    maker.safe_move(Path, target)
+    classifer = MovieClassifierTMDb()
+    print(classifer.checker("Arrival 2016"))
