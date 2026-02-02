@@ -13,10 +13,6 @@ class FolderMaker:
         self.movie_folder = self.destination_folder / "movie"
         self.web_series = self.destination_folder / "web_series"
 
-    def check_folder(self, file_path):
-        if not os.path.exists(file_path):
-            os.makedirs(file_path)
-
     def detect_media_type(self, title):
         """
         Reuturn : 'Tv' or 'movie'
@@ -34,22 +30,32 @@ class FolderMaker:
 
         return "movie"
 
-    def parse_tv_title(self, title):
+    @staticmethod
+    def parse_tv_title(title):
         """
-        return: show_name , season_number
+        return: show_name, season_number, episode_number
         """
 
         patterns = [
-            r"^(.*?)[\s._-]*S(\d+)[\s._-]*E?(\d+)",  # S01E02, S1 02
-            r"^(.*?)[\s._-]*(?:EP|E)(\d+)",  # EP02, E02 (no season)
+            # S01E02, S1 E02
+            r"^(.*?)[\s._-]*S(\d+)[\s._-]*E(\d+)",
+            # E02, EP02 (no season)
+            r"^(.*?)[\s._-]*(?:EP|E)(\d+)$",
         ]
 
         for pattern in patterns:
             match = re.search(pattern, title, re.IGNORECASE)
             if match:
                 show_name = match.group(1).strip()
-                season = int(match.group(2)) if "S" in match.group(0).upper() else 1
-                return show_name, season
+
+                if len(match.groups()) == 3:
+                    season = int(match.group(2))
+                    episode = int(match.group(3))
+                else:
+                    season = 1  # default season
+                    episode = int(match.group(2))
+
+                return show_name, season, episode
 
         raise ValueError(f"Invalid TV title format: {title}")
 

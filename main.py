@@ -208,3 +208,7 @@ if __name__ == "__main__":
 
     while True:
         time.sleep(1)
+
+    # filename = Path("Fate Stay Night UBW - 22 [720p] [Dual] @Anime_Maniaac.mkv")
+    # # filename = Path("Monster S1 - 02 [720p] [Dual] @Anime_Maniaac.mkv")
+    # print(maker.parse_tv_title(clean_filename(filename)))
