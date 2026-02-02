@@ -65,10 +65,14 @@ class FolderMaker:
         return movie_dir / (title + file_path.suffix)
 
     def tv_target_path(self, file_path: str, title: str):
-        show_name, season_number = self.parse_tv_title(title)
-        season_dir = self.anime_folder / show_name / f"Season {season_number}"
+        show_name, season, episode = self.parse_tv_title(title)
+
+        season_dir = self.anime_folder / show_name / f"Season {season}"
         season_dir.mkdir(parents=True, exist_ok=True)
-        return season_dir / (title + file_path.suffix)
+
+        new_name = f"{show_name} - S{season:02d}E{episode:02d}{file_path.suffix}"
+
+        return season_dir / new_name
 
     @staticmethod
     def safe_move(src: Path, dst: Path):
